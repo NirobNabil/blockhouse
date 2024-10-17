@@ -8,6 +8,7 @@ class StockData(models.Model):
     close = models.DecimalField(max_digits=10, decimal_places=4)
     volume = models.IntegerField()
     date = models.DateField(unique=True)
+    symbol = models.CharField(max_length=11)
     
     def __str__(self):
         return self.date.strftime("%Y-%m-%d")

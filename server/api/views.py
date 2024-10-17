@@ -19,11 +19,13 @@ def update_db(request):
     if 'symbol' not in request.data:
         return Response("request needs to include symbol field", status=status.HTTP_400_BAD_REQUEST)
 
+
+    symbol = request.data['symbol']
     params = {
         "function": "TIME_SERIES_DAILY",
-        "symbol": request.data['symbol'],
+        "symbol": symbol,
         "apikey": os.getenv('ALPHADVANTAGE_APIKEY'),
-        "outputsize": "compact",
+        "outputsize": "full",
         "datatype": "json"
     }
     
@@ -49,7 +51,8 @@ def update_db(request):
             "high": float(values["2. high"]),
             "low": float(values["3. low"]),
             "close": float(values["4. close"]),
-            "volume": int(values["5. volume"])
+            "volume": int(values["5. volume"]),
+            "symbol": str(symbol)
         }
         records.append(entry)
 
@@ -80,7 +83,6 @@ def update_db(request):
         serializer = StockDataSerializer(data=database_queue, many=True)
         if serializer.is_valid():
             serializer.save()
-            print(serializer.data)
             updated_records = serializer.data
         else:
             return Response("Couldn't save data because data from alphadvantage api is invalid", status=status.HTTP_500_INTERNAL_SERVER_ERROR)   
