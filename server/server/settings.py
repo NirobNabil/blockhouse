@@ -10,10 +10,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-## setting .env
-from dotenv import load_dotenv
-load_dotenv()
-
 
 from pathlib import Path
 
@@ -43,7 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'api'
+    'api',
+    'frontend',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
@@ -54,6 +52,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
 ]
 
 ROOT_URLCONF = 'server.urls'
@@ -132,3 +132,22 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+##### CUSTOM FIELDS
+
+## setting .env
+from dotenv import load_dotenv
+load_dotenv()
+
+## setting frontend settings
+REACT_APP_BUILD_PATH = "frontend/dist"
+REACT_STATIC_BASEURL = "assets/"
+REACT_STATICFILES_DIR = "frontend/build/static"
+
+## CORS
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:8000',
+]

@@ -10,6 +10,7 @@ import urllib
 import os
 import datetime
 
+from .util.backtest import backtest
 
 API_BASEURL = "https://www.alphavantage.co/"
 
@@ -56,6 +57,12 @@ def update_db(request):
         }
         records.append(entry)
 
+    import json
+    json_object = json.dumps(records, indent=4)
+ 
+    # Writing to sample.json
+    with open("sample.json", "w") as outfile:
+        outfile.write(json_object)
 
     ##### filter incoming records 
     
@@ -94,5 +101,32 @@ def update_db(request):
          
     
     return Response(updated_records, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def backtest_endpoint(request):
+    
+    ## TODO: do something about the mean average minimum start range
+    try:
+        start_date = datetime.datetime.strptime(request.data["startDate"], '%Y-%m-%d').date()
+        end_date = datetime.datetime.strptime(request.data["endDate"], '%Y-%m-%d').date()
+        investment = int(request.data["investment"])
+        buy_range = int(request.data["buyRange"])
+        sell_range = int(request.data["sellRange"])
+        
+        # TODO: do something about the 200 days thing
+        # oldest = StockData.objects.order_by('date').first()
+        # if oldest.date > start_date - datetime.timedelta(days=max(buy_range, sell_range)+1):
+        #     raise ValueError("Database doesn't have enough data for given parameters. Please select range within 200 years from today")
+        
+    except ValueError as e:
+        print(e)
+        return Response("Invalid values", status=status.HTTP_400_BAD_REQUEST)
+    
+    records = StockData.objects.all().order_by('date')
+    
+    balance = backtest(records, start_date, end_date, buy_range, sell_range, investment)
+    
+    return Response({'balance': balance})
     
     
