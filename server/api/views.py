@@ -1,27 +1,31 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import StockData
-from .serializer import StockDataSerializer
-from .models import StockData
 from django.db import DatabaseError
+import numpy as np
 import requests
 import urllib
 import os
 import datetime
+import os
+import joblib
 
+from .models import StockData
+from .serializer import StockDataSerializer
+from .models import StockData
 from .util.backtest import backtest
+
 
 API_BASEURL = "https://www.alphavantage.co/"
 
-@api_view(['POST'])
+@api_view(['GET'])
 def update_db(request):
 
     if 'symbol' not in request.data:
         return Response("request needs to include symbol field", status=status.HTTP_400_BAD_REQUEST)
 
 
-    symbol = request.data['symbol']
+    symbol = request.GET.get['symbol']
     params = {
         "function": "TIME_SERIES_DAILY",
         "symbol": symbol,
@@ -128,5 +132,25 @@ def backtest_endpoint(request):
     results = backtest(records, start_date, end_date, buy_range, sell_range, investment)
     
     return Response(results)
+
+
+@api_view(['GET'])
+def forecast(request):
+
+    symbol = request.GET.get('symbol')
+    
+    model = joblib.load(os.path.join(os.path.dirname(__file__), 'data/lin_model.pkl') )
+    records = reversed(StockData.objects.filter(symbol=symbol).order_by('-date')[:100])
+    
+    Xs = []
+    for record in records:
+        Xs.append(record.open)
+        
+    Xs = np.array(Xs).astype(float)
+    y = model.predict([Xs])
+
+    return Response({
+        "predictions": y[0]
+    })
     
     
