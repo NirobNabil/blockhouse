@@ -18,15 +18,16 @@ import { Input } from "@/components/ui/input"
 
 import { formSchema } from "./schema"
 import { DatePickerField } from "./components/dateField"
+import { ResultCard } from "./components/resultCard"
 
 export default function ProfileForm() {
   
-  const [result, setResult] = useState({'balance': 0})
+  const [results, setResults] = useState({'total_return': 0, 'trade_count': 0, 'max_drawdown': 0})
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      startDate: '2000-01-01',
+      startDate: '2012-01-01',
       endDate: '2024-10-01',
       investment: 5000,
       buyRange: 50,
@@ -42,8 +43,10 @@ export default function ProfileForm() {
         ...values
       })
     }).then( (r) => r.json() ).then( res => {
-      let balance:number = parseInt(res["balance"]);
-      setResult( {balance} )
+      let total_return:number = parseFloat(res["total_return"]);
+      let trade_count:number = parseFloat(res["trade_count"]);
+      let max_drawdown:number = parseFloat(res["max_drawdown"]);
+      setResults( {total_return, trade_count, max_drawdown} )
     } )
   }
 
@@ -122,8 +125,8 @@ export default function ProfileForm() {
         <Button className="w-full" type="submit">Submit</Button>
       </form>
     </Form>
-    <div>
-      {result["balance"]}
+    <div className="min-w-[280px] w-1/2 " >
+      <ResultCard results={results} />
     </div>
     </div>
   )

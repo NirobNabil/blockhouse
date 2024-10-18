@@ -125,8 +125,8 @@ def backtest_endpoint(request):
     
     records = StockData.objects.all().order_by('date')
     
-    balance = backtest(records, start_date, end_date, buy_range, sell_range, investment)
+    results = backtest(records, start_date, end_date, buy_range, sell_range, investment)
     
-    return Response({'balance': balance})
+    return Response(results)
     
     
