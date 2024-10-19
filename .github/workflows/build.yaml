@@ -29,4 +29,4 @@ jobs:
         docker push us-docker.pkg.dev/$GOOGLE_PROJECT/gcr.io/blockhouse-service:latest
 
     - name: Deploy to Cloud Run
-      run: gcloud run deploy blockhouse-service --image us-docker.pkg.dev/$GOOGLE_PROJECT/gcr.io/blockhouse-service:latest --platform managed --region us-central1 --concurrency 1 --min-instances 1 --max-instances 1
+      run: gcloud run deploy blockhouse-service --image us-docker.pkg.dev/$GOOGLE_PROJECT/gcr.io/blockhouse-service:latest --platform managed --region us-central1 --concurrency 1 --min-instances 1 --max-instances 1 --set-env-vars GOOGLE_CLOUD_PROJECT=$GOOGLE_PROJECT
