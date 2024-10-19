@@ -20,6 +20,7 @@ import { formSchema } from "./schema"
 import { DatePickerField } from "@/components/dateField"
 import { ResultCard } from "./components/resultCard"
 import { Navbar } from "@/components/navbar"
+import { API_BASEURL } from "@/constants"
 
 export default function ProfileForm() {
   
@@ -37,7 +38,7 @@ export default function ProfileForm() {
   })
  
   function onSubmit(values: z.infer<typeof formSchema>) {
-    fetch('http://localhost:8000/api/backtest/', {
+    fetch( API_BASEURL + 'backtest/', {
       method: 'POST',
       headers: new Headers({'content-type': 'application/json'}),
       body: JSON.stringify({

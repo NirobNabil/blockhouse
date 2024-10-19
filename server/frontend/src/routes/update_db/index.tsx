@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,7 +22,9 @@ import { API_BASEURL } from "@/constants.ts"
 
 
 
-export default function PerformanceReport() {
+export default function UpdateDatabase() {
+
+  const [ result, setResult ] = useState("")
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -30,12 +33,21 @@ export default function PerformanceReport() {
     },
   })
 
+  // TODO: Error handling
   function onSubmit(values: z.infer<typeof formSchema>) {
+    setResult("Updating database. please wait...")
     fetch( API_BASEURL + `generate_model_performance/?symbol=${values["symbol"]}`, {
       method: 'GET',
-    }).then((r) => r.json()).then(res => {
-      // @ts-ignore
-      window.open("http://localhost:8000/"+res["pdf"], '_blank').focus()
+    }).then((r) => {
+      if( !r.ok ) {
+        return r.text().then( text => { throw new Error(text) } )
+      } else {
+        return r.text()
+      }
+    }).then(res_text => {
+      setResult(res_text)
+    }).catch(err => {
+      setResult(err)
     })
   }
 
@@ -61,9 +73,10 @@ export default function PerformanceReport() {
                 </FormItem>
               )}
             />
-            <Button className="w-full" type="submit">Generate performance report</Button>
+            <Button className="w-full" type="submit">Update database</Button>
           </form>
         </Form>
+        <div>{result}</div>
       </div>
     </>
   )

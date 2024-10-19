@@ -1,0 +1,13 @@
+**/venv
+**/venv_p
+venv
+venv_p
+
+**/node_modules
+ml
+
+**/*.pyc
+**/__pycache__
+
+.git
+cloud-sql-proxy

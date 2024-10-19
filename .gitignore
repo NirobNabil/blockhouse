@@ -1,7 +1,14 @@
-.venv
-*/.env
+venv
+**/venv
+**/venv_p
+**/.env
+.env
 **/__pycache__
 
 server/frontend/node_modules
 
 .vscode/*
+cloud-sql-proxy
+./server/api/static/image/*
+./server/api/static/pdf/*
+./server/api/static/tmp/*

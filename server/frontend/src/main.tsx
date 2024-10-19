@@ -8,6 +8,7 @@ import {
 import ProfileForm from "./routes/backtest";
 import Forecast from "./routes/forecast"
 import PerformanceReport from "./routes/performance_report"
+import UpdateDatabase from './routes/update_db';
 
 const router = createBrowserRouter([
   {
@@ -21,6 +22,10 @@ const router = createBrowserRouter([
   {
     path: "/performance_report",
     element: <PerformanceReport />,
+  },
+  {
+    path: "/update_database",
+    element: <UpdateDatabase />,
   },
 ]);
 

@@ -1,0 +1,14 @@
+version: '3'
+services:
+  
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: blockhouse_backend
+    command: bash -c "python /app/server/manage.py runserver 0.0.0.0:8000"
+    restart: always
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"

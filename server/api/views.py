@@ -28,7 +28,6 @@ API_BASEURL = "https://www.alphavantage.co/"
 ## TODO: implement rate limiting
 @api_view(['GET'])
 def update_db(request):
-
     
     try: 
         symbol = request.GET.get('symbol')
@@ -47,17 +46,22 @@ def update_db(request):
     req_url = API_BASEURL + "query?" + urllib.parse.urlencode(params)
 
     ## TODO: add logging    
+    print("fetching stock data for symbol: ", symbol)
     try:
         response = requests.get(req_url)
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
+        print("couldn't fetch stock data for symbol: ", symbol)
         return Response("alphadvantage api request timed out", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except requests.exceptions.Timeout as e:
+        print("couldn't fetch stock data for symbol: ", symbol)
         return Response("alphadvantage api request timed out", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    print("fetched stock data for symbol: ", symbol)
     
     response = response.json()
     response = response["Time Series (Daily)"]
     
+    print("converting start")
     records = []
     for date, values in response.items():
         entry = {
@@ -70,11 +74,7 @@ def update_db(request):
             "symbol": str(symbol)
         }
         records.append(entry)
-        
-
-    with open("gg.json", "w") as f:
-        import json
-        f.write(json.dumps(records))
+    print("converting end")
 
 
     ##### filter incoming records 
@@ -82,38 +82,37 @@ def update_db(request):
     latest_db_record = StockData.objects.order_by("-date").first()
     database_queue = []
     
-    # At database init
-    if latest_db_record is None:
-        database_queue = records
+    for entry in records:
+        entry_date = datetime.datetime.strptime(entry["date"], "%Y-%m-%d").date()
     
-    # only create new entries for dates that dont already exist in database
-    else:
-        latest_date = latest_db_record.date
-        for entry in records:
-            entry_date = datetime.datetime.strptime(entry["date"], "%Y-%m-%d").date()
-            if entry_date > latest_date:
-                database_queue.append(entry)
-        
-        
+        # only create new entries for dates that dont already exist in database
+        if latest_db_record is not None and entry_date < latest_db_record.date:
+            continue
+    
+        database_queue.append(StockData(
+            date=entry_date, 
+            open=entry["open"], 
+            high=entry["high"], 
+            low=entry["low"], 
+            close=entry["close"], 
+            volume=entry["volume"], 
+            symbol="AAPL"
+        ))
+    
     
     ##### save into database
-    
-    updated_records = []
+    ### Didn't use serializers here because using serializer.is_valid() for 6000+ entries takes too long
+    ### Thus had to assume that alphadvantage data is always valid
+        
     try:
-        serializer = StockDataSerializer(data=database_queue, many=True)
-        if serializer.is_valid():
-            serializer.save()
-            updated_records = serializer.data
-        else:
-            return Response("Couldn't save data because data from alphadvantage api is invalid", status=status.HTTP_500_INTERNAL_SERVER_ERROR)   
-            
+        StockData.objects.bulk_create(database_queue)
     except DatabaseError as db_e:
         ## TODO: log
         print(e)
         return Response("Database error occurred", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
          
     
-    return Response(updated_records, status=status.HTTP_200_OK)
+    return Response(f"Updated {len(database_queue)} entries", status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -295,7 +294,7 @@ def generate_model_performance(request):
     })
     plot_forecast_with_groundtruth(data_df, plot2_filepath)
     
-    pdf_filename = f'model_performance_{symbol}_{datetime.datetime.strftime(datetime.datetime.today(), '%Y-%m-%d')}.pdf'
+    pdf_filename = f'model_performance_{symbol}_{datetime.datetime.strftime(datetime.datetime.today(), "%Y-%m-%d")}.pdf'
     pdf_filepath = os.path.join(os.path.dirname(__file__), 'static/pdf/'+pdf_filename )
     pdf_for_model_performance({
         "historical_data_plot_path": plot1_filepath,

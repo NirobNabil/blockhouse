@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -19,14 +18,12 @@ import { Input } from "@/components/ui/input"
 import { formSchema } from "./schema.ts"
 import { DatePickerField } from "@/components/dateField"
 import { Navbar } from "@/components/navbar"
-
+import { API_BASEURL } from "@/constants.ts"
 
 
 
 
 export default function Forecast() {
-
-  const [results, setResults] = useState({ 'total_return': 0, 'trade_count': 0, 'max_drawdown': 0 })
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -37,9 +34,10 @@ export default function Forecast() {
   })
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    fetch(`http://localhost:8000/api/forecast/?symbol=${values["symbol"]}&date=${values["startDate"]}`, {
+    fetch( API_BASEURL + `forecast/?symbol=${values["symbol"]}&date=${values["startDate"]}`, {
       method: 'GET',
     }).then((r) => r.json()).then(res => {
+      // @ts-ignore
       window.open("http://localhost:8000/"+res["pdf"], '_blank').focus()
     })
   }

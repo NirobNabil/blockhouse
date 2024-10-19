@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { Link } from "react-router-dom";
 
 import {
@@ -16,6 +15,14 @@ export function Navbar() {
   return (
     <NavigationMenu>
       <NavigationMenuList>
+        <NavigationMenuItem>
+          <Link to="/update_database">
+            <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+              Update database
+            </NavigationMenuLink>
+          </Link>
+        </NavigationMenuItem>
+        
         <NavigationMenuItem>
           <Link to="/backtest_results">
             <NavigationMenuLink className={navigationMenuTriggerStyle()}>
