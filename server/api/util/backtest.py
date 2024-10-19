@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 import sys
 
+from .metrics import sharpe, sortino, max_drawdown, VaR
+
 def mean(records):
     count = len(records)
     result = 0
@@ -19,6 +21,8 @@ def backtest(records, start_date, end_date, buy_range, sell_range, initial_inves
     trade_count = 0
     min_price = sys.float_info.max
     max_price = sys.float_info.min
+    
+    stats = []
     
     try:        
         # this logic works because the records are sorted
@@ -45,16 +49,30 @@ def backtest(records, start_date, end_date, buy_range, sell_range, initial_inves
             stocks += 1
             balance -= cur_price
             trade_count += 1
+            
+        stats.append({
+            "value": balance + stocks * cur_price,
+            "date": records[cur_idx].date
+        })
         
     if stocks > 0:
         trade_count += stocks
         balance += float(records[record_count-1].high) * stocks
         stocks = 0
         
-    max_drawdown = ( ( min_price - max_price ) / max_price ) * 100.0
-        
+
+    metrics = {
+        "sharpe": sharpe(stats),
+        "sortino": sortino(stats),
+        "VaR": VaR(stats, 0.99),
+        "max_drawdown": max_drawdown(stats)
+    }
+    
+    
     return {
         "total_return": balance - initial_investment,
         "trade_count": trade_count,
-        "max_drawdown": max_drawdown
+        "returns": list(map(lambda x:x["value"], stats)),
+        "dates": list(map(lambda x:x["date"], stats)),
+        "metrics": metrics 
     }

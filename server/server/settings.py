@@ -151,3 +151,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:8000',
 ]
+
+## MEDIA FILES
+MEDIA_ROOT = "api/static/"
+MEDIA_BASEURL = "api/static/"

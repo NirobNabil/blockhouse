@@ -2,6 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import DatabaseError
+from django.conf import settings
+import pandas as pd
 import numpy as np
 import requests
 import urllib
@@ -9,23 +11,31 @@ import os
 import datetime
 import os
 import joblib
+import uuid
 
-from .models import StockData
-from .serializer import StockDataSerializer
+from .models import StockData, BacktestResults
+from .serializer import StockDataSerializer, BacktestResultsSerializer
 from .models import StockData
 from .util.backtest import backtest
+from .util.visualizeHelper import plot_25th_preds, plot_only_forecast, plot_forecast_with_groundtruth, plot_returns
+from .util.modelHelper import forecast_30days, predict_for_many_rows, parse_records_to_open_price_numpy
+from .util.pdfHelper import pdf_for_model_performance, pdf_for_backtest, pdf_for_forecast
 
 
 API_BASEURL = "https://www.alphavantage.co/"
 
+
+## TODO: implement rate limiting
 @api_view(['GET'])
 def update_db(request):
 
-    if 'symbol' not in request.data:
+    
+    try: 
+        symbol = request.GET.get('symbol')
+    except Exception as e:
+        print(e)
         return Response("request needs to include symbol field", status=status.HTTP_400_BAD_REQUEST)
-
-
-    symbol = request.GET.get['symbol']
+        
     params = {
         "function": "TIME_SERIES_DAILY",
         "symbol": symbol,
@@ -60,13 +70,12 @@ def update_db(request):
             "symbol": str(symbol)
         }
         records.append(entry)
+        
 
-    import json
-    json_object = json.dumps(records, indent=4)
- 
-    # Writing to sample.json
-    with open("sample.json", "w") as outfile:
-        outfile.write(json_object)
+    with open("gg.json", "w") as f:
+        import json
+        f.write(json.dumps(records))
+
 
     ##### filter incoming records 
     
@@ -131,26 +140,175 @@ def backtest_endpoint(request):
     
     results = backtest(records, start_date, end_date, buy_range, sell_range, investment)
     
-    return Response(results)
+    plot1_filepath = os.path.join(os.path.dirname(__file__), f'static/tmp/{str(uuid.uuid4())}.png')
+    plot_returns(pd.DataFrame(data={
+        "date": results["dates"],
+        "return": results["returns"]
+    }), file_path=plot1_filepath)
+    
+    data = {
+        "issue_date": datetime.datetime.today().date(),
+        "start_date": start_date,
+        "end_date": end_date,
+        "investment": investment,
+        "buy_range": buy_range,
+        "sell_range": sell_range,
+        "sharpe": results["metrics"]["sharpe"],
+        "sortino": results["metrics"]["sortino"],
+        "VaR": results["metrics"]["VaR"],
+        "max_drawdown": results["metrics"]["max_drawdown"],
+        "total_return": results["total_return"],
+        "trade_count": results["trade_count"],
+        "returns_plot_filepath": plot1_filepath
+    }
+    
+    pdf_filename = f"backtest_result_{str(uuid.uuid4())}.pdf"
+    pdf_for_backtest(data, os.path.join(os.path.dirname(__file__), f'static/pdf/{pdf_filename}'))
+    data["report_filepath"] = settings.MEDIA_BASEURL+"pdf/"+pdf_filename
+    
+    os.remove(plot1_filepath)
+    
+    serializer = BacktestResultsSerializer(data=data)
+    
+    if serializer.is_valid():
+        serializer.save()
+    else:
+        print(serializer.errors)
+    
+    return Response( settings.MEDIA_BASEURL+"pdf/"+pdf_filename, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def get_previous_backtests(request):
+    previous_backtests = BacktestResults.objects.all()
+    if len(previous_backtests) == 0:
+        return Response("No previous backtest results", status=status.HTTP_200_OK)
+        
+    serializer = BacktestResultsSerializer(data=previous_backtests, many=True)
+    if serializer.is_valid():
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    else:
+        return Response("Couldn't fetch previous backtests", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
 def forecast(request):
 
-    symbol = request.GET.get('symbol')
-    
-    model = joblib.load(os.path.join(os.path.dirname(__file__), 'data/lin_model.pkl') )
-    records = reversed(StockData.objects.filter(symbol=symbol).order_by('-date')[:100])
-    
-    Xs = []
-    for record in records:
-        Xs.append(record.open)
-        
-    Xs = np.array(Xs).astype(float)
-    y = model.predict([Xs])
+    ##### input validation
 
-    return Response({
-        "predictions": y[0]
+    symbol = request.GET.get('symbol')
+    try:
+        date = datetime.datetime.strptime(request.GET.get('date'), '%Y-%m-%d').date()
+    except:
+        return Response("Invalid date value", status=status.HTTP_400_BAD_REQUEST)
+
+    if date > datetime.datetime.today().date():
+        return Response("Please choose a date of today or earlier", status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    # check if there is groundtruth data available in the database for comparison
+    groundtruth_available = False
+    if StockData.objects.order_by("-date").first().date >= date + datetime.timedelta(days=30):
+        groundtruth_available = True
+        
+            
+    dates = []
+    groundtruth = []
+    if groundtruth_available:
+        records = list(reversed(StockData.objects.filter(symbol=symbol).filter(date__lt=date).order_by('-date')[:100]))  # get previous 100 days of data
+        records += list(StockData.objects.filter(symbol=symbol).filter(date__gte=date).order_by('date'))[:30]  # get next 30 days of data for groundtruth
+        groundtruth = parse_records_to_open_price_numpy(records[100:])
+
+        for record in records[100:]:
+            dates.append(record.date)
+    
+    else:
+        try:
+            records = list(reversed(StockData.objects.filter(symbol=symbol).filter(date__lte=date).order_by('-date')[:100]))
+        except DatabaseError:
+            return Response("Choose an earlier date", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        dates = [ date + datetime.timedelta(days=i) for i in range(0, 30) ]
+        
+        
+    
+    ##### make predictions
+    
+    predictions = forecast_30days(records[:100])[1]
+    
+    
+    ##### plot comparison graphs
+    
+    plot_filepath = os.path.join(os.path.dirname(__file__), 'static/'+str(uuid.uuid4())+".png" )
+    if groundtruth_available:
+        data_df = pd.DataFrame({
+            "date": dates,
+            "pred": predictions,
+            "groundtruth": groundtruth,
+        })
+        plot_forecast_with_groundtruth(data_df, plot_filepath)
+        
+    else:
+        data_df = pd.DataFrame({
+            "date": dates,
+            "pred": predictions,
+            "filename": plot_filepath
+        }) 
+        plot_only_forecast(data_df, plot_filepath)
+    
+    
+    # generate pdf
+    pdf_filename = f'forecast_{str(uuid.uuid4())}.pdf'
+    pdf_filepath = os.path.join(os.path.dirname(__file__), 'static/tmp/'+pdf_filename )
+    pdf_for_forecast({
+        "start_date": date,
+        "forecast_plot_filepath": plot_filepath
+    }, pdf_filepath)
+    
+    
+    return Response({"pdf": settings.MEDIA_BASEURL+"tmp/"+pdf_filename}, status=status.HTTP_200_OK)
+    # return Response({
+    #     "predictions": predictions
+    # })
+    
+    
+    
+@api_view(['GET'])
+def generate_model_performance(request):
+    
+    symbol = request.GET.get('symbol')
+    records = list(StockData.objects.filter(symbol=symbol).order_by('date'))  # get previous 100 days of data
+    
+    [Xs, predictions] = predict_for_many_rows(records)
+    
+    plot1_filepath = os.path.join(os.path.dirname(__file__), 'static/'+str(uuid.uuid4())+".png" )
+    plot_25th_preds(predictions, Xs, [ record.date for record in records[99:] ], plot1_filepath)
+    
+    
+    plot2_filepath = os.path.join(os.path.dirname(__file__), 'static/'+str(uuid.uuid4())+".png" )
+    predictions = forecast_30days(records[-130:][:100])[1]
+    groundtruth = parse_records_to_open_price_numpy(records[-30:])
+    data_df = pd.DataFrame({
+        "date": [ record.date for record in records[-30:] ],
+        "pred": predictions,
+        "groundtruth": groundtruth,
     })
+    plot_forecast_with_groundtruth(data_df, plot2_filepath)
+    
+    pdf_filename = f'model_performance_{symbol}_{datetime.datetime.strftime(datetime.datetime.today(), '%Y-%m-%d')}.pdf'
+    pdf_filepath = os.path.join(os.path.dirname(__file__), 'static/pdf/'+pdf_filename )
+    pdf_for_model_performance({
+        "historical_data_plot_path": plot1_filepath,
+        "forecast_data_plot_path": plot2_filepath
+    }, filepath=pdf_filepath)
+    
+    os.remove(plot1_filepath)
+    os.remove(plot2_filepath)
+    
+    return Response({"pdf": settings.MEDIA_BASEURL+"pdf/"+pdf_filename}, status=status.HTTP_200_OK)
+        
+    # Xs = np.array(Xs).astype(float) 
+    
+    
     
     

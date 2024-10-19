@@ -17,8 +17,9 @@ import {
 import { Input } from "@/components/ui/input"
 
 import { formSchema } from "./schema"
-import { DatePickerField } from "./components/dateField"
+import { DatePickerField } from "@/components/dateField"
 import { ResultCard } from "./components/resultCard"
+import { Navbar } from "@/components/navbar"
 
 export default function ProfileForm() {
   
@@ -52,6 +53,10 @@ export default function ProfileForm() {
 
   // TODO: show server returned errors 
   return (
+    <>
+    <div className="flex justify-center p-8" >
+      <Navbar />
+    </div>
     <div className="flex items-center flex-col w-full pt-8" >
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 min-w-[280px] w-1/2 ">
@@ -129,5 +134,6 @@ export default function ProfileForm() {
       <ResultCard results={results} />
     </div>
     </div>
+    </>
   )
 }

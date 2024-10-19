@@ -6,11 +6,21 @@ import {
   RouterProvider,
 } from "react-router-dom";
 import ProfileForm from "./routes/backtest";
+import Forecast from "./routes/forecast"
+import PerformanceReport from "./routes/performance_report"
 
 const router = createBrowserRouter([
   {
     path: "/backtest",
     element: <ProfileForm />,
+  },
+  {
+    path: "/forecast",
+    element: <Forecast />,
+  },
+  {
+    path: "/performance_report",
+    element: <PerformanceReport />,
   },
 ]);
 
