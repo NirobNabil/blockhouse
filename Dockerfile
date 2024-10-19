@@ -16,6 +16,6 @@ WORKDIR /app/server
 ENV GOOGLE_CLOUD_PROJECT blockhouse-439114
 ENV USE_CLOUD_SQL_AUTH_PROXY false
 
-EXPOSE 8000
+EXPOSE $PORT
 
-CMD python /app/server/manage.py runserver
+CMD python /app/server/manage.py runserver $PORT
