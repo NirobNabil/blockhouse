@@ -22,5 +22,3 @@ EXPOSE $PORT
 RUN chmod +x /app/server/start.sh
 
 CMD ["python -m gunicorn server.wsgi:application --bind 0.0.0.0:$PORT"]
-
-# ENTRYPOINT ["python /app/server/manage.py process_tasks & gunicorn server.wsgi:application --bind 0.0.0.0:$PORT"]
