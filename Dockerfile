@@ -1,5 +1,9 @@
 # Use an official Python runtime as a parent image
-FROM python:3.12.5
+FROM ubuntu:22.04
+
+RUN apt-get update
+
+RUN apt-get update && apt-get install -y python3 python3-pip
 
 # Set the working directory
 WORKDIR /app
@@ -18,3 +22,5 @@ EXPOSE $PORT
 RUN chmod +x /app/server/start.sh
 
 CMD ["/app/server/start.sh"]
+
+# ENTRYPOINT ["python /app/server/manage.py process_tasks & gunicorn server.wsgi:application --bind 0.0.0.0:$PORT"]
