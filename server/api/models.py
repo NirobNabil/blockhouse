@@ -1,6 +1,5 @@
 from django.db import models
 
-# Create your models here.
 class StockData(models.Model):
     open = models.DecimalField(max_digits=10, decimal_places=4)
     high = models.DecimalField(max_digits=10, decimal_places=4)
@@ -13,8 +12,8 @@ class StockData(models.Model):
     def __str__(self):
         return self.date.strftime("%Y-%m-%d")
     
-    
-    
+
+
 class BacktestResults(models.Model):
     issue_date = models.DateField(unique=True)
     start_date = models.DateField()

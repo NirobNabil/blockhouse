@@ -20,12 +20,12 @@ from .util.backtest import backtest
 from .util.visualizeHelper import plot_25th_preds, plot_only_forecast, plot_forecast_with_groundtruth, plot_returns
 from .util.modelHelper import forecast_30days, predict_for_many_rows, parse_records_to_open_price_numpy
 from .util.pdfHelper import pdf_for_model_performance, pdf_for_backtest, pdf_for_forecast
+from .background import add_to_del_queue
 
 
 API_BASEURL = "https://www.alphavantage.co/"
 
 
-## TODO: implement rate limiting
 @api_view(['GET'])
 def update_db(request):
     
@@ -162,8 +162,10 @@ def backtest_endpoint(request):
     }
     
     pdf_filename = f"backtest_result_{str(uuid.uuid4())}.pdf"
-    pdf_for_backtest(data, os.path.join(os.path.dirname(__file__), f'static/pdf/{pdf_filename}'))
+    pdf_filepath = os.path.join(os.path.dirname(__file__), f'static/pdf/{pdf_filename}')
+    pdf_for_backtest(data, pdf_filepath)
     data["report_filepath"] = settings.MEDIA_BASEURL+"pdf/"+pdf_filename
+    add_to_del_queue(pdf_filepath)
     
     os.remove(plot1_filepath)
     
@@ -238,7 +240,7 @@ def forecast(request):
     
     ##### plot comparison graphs
     
-    plot_filepath = os.path.join(os.path.dirname(__file__), 'static/'+str(uuid.uuid4())+".png" )
+    plot_filepath = os.path.join(os.path.dirname(__file__), 'static/tmp/'+str(uuid.uuid4())+".png" )
     if groundtruth_available:
         data_df = pd.DataFrame({
             "date": dates,
@@ -263,17 +265,22 @@ def forecast(request):
         "start_date": date,
         "forecast_plot_filepath": plot_filepath
     }, pdf_filepath)
+    add_to_del_queue(pdf_filepath)
+    os.remove(plot_filepath)
     
     
     return Response({"pdf": settings.MEDIA_BASEURL+"tmp/"+pdf_filename}, status=status.HTTP_200_OK)
-    # return Response({
-    #     "predictions": predictions
-    # })
     
     
     
 @api_view(['GET'])
 def generate_model_performance(request):
+
+    ##### return cached model performance because it doesnt change within a day
+    pdf_filename = f'model_performance_{symbol}_{datetime.datetime.strftime(datetime.datetime.today(), "%Y-%m-%d")}.pdf'
+    pdf_filepath = os.path.join(os.path.dirname(__file__), 'static/pdf/'+pdf_filename )
+    if os.path.exists(pdf_filepath):
+        return Response({"pdf": settings.MEDIA_BASEURL+"pdf/"+pdf_filename}, status=status.HTTP_200_OK)
     
     symbol = request.GET.get('symbol')
     records = list(StockData.objects.filter(symbol=symbol).order_by('date'))  # get previous 100 days of data
@@ -294,8 +301,7 @@ def generate_model_performance(request):
     })
     plot_forecast_with_groundtruth(data_df, plot2_filepath)
     
-    pdf_filename = f'model_performance_{symbol}_{datetime.datetime.strftime(datetime.datetime.today(), "%Y-%m-%d")}.pdf'
-    pdf_filepath = os.path.join(os.path.dirname(__file__), 'static/pdf/'+pdf_filename )
+    
     pdf_for_model_performance({
         "historical_data_plot_path": plot1_filepath,
         "forecast_data_plot_path": plot2_filepath
