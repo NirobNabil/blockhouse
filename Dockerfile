@@ -15,6 +15,6 @@ WORKDIR /app/server
 
 EXPOSE $PORT
 
-RUN echo '' > /app/server/start.sh && chmod +x /app/server/start.sh
+RUN chmod +x /app/server/start.sh
 
 CMD ["/app/server/start.sh"]
