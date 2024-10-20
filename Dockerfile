@@ -17,4 +17,4 @@ EXPOSE $PORT
 
 RUN echo '' > /app/server/start.sh && chmod +x /app/server/start.sh
 
-CMD bash /app/server/start.sh
+CMD HOME=/root bash /app/server/start.sh
