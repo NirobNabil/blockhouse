@@ -15,8 +15,6 @@ WORKDIR /app/server
 
 EXPOSE $PORT
 
-RUN echo '#!/bin/bash \
-python manage.py process_tasks & \
-exec gunicorn server.wsgi:application --bind localhost:$PORT' > ./start.sh && chmod +x /start.sh
+RUN echo '' > /app/server/start.sh && chmod +x /app/server/start.sh
 
-CMD python /app/server/manage.py runserver $PORT
+CMD bash /app/server/start.sh
